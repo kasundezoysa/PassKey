@@ -24,7 +24,8 @@ This lab demonstrates how to use hardware biometrics (TouchID, FaceID) and mobil
 3. **Python Libraries:**
 
 ```bash
-pip install flask flask-cors webauthn```
+pip install flask flask-cors webauthn
+```
 
 
 ## 🔧 Installation & Setup
