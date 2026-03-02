@@ -22,17 +22,17 @@ This lab demonstrates how to use hardware biometrics (TouchID, FaceID) and mobil
 1. **HTTPS or Localhost:** WebAuthn requires a secure context. Running on `http://localhost:8080` is supported.
 2. **Hardware:** A device with a biometric sensor (TouchID/FaceID) or a mobile phone with Bluetooth enabled.
 3. **Python Libraries:**
->pip install flask flask-cors webauthn
+> pip install flask flask-cors webauthn
 
 
 ## 🔧 Installation & Setup
 
 1. **Clone the repository:**
-git clone https://github.com/your-username/passkey-lab.git
-cd passkey-lab
+> git clone https://github.com/your-username/passkey-lab.git
+> cd passkey-lab
 
 2. **Run the server:**
-python app.py
+> python app.py
 
 3. **Access the Lab:**
 Open your browser and navigate to `http://localhost:8080`.
