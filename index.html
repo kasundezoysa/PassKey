@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAuthn & Passkey Lab</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f4f4f9; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 1rem; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-right: 10px; }
+        button:hover { background: #0056b3; }
+        #console { background: #222; color: #00ff00; padding: 1rem; border-radius: 4px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; }
+        h2 { color: #333; }
+        .status-tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
+        .success { background: #d4edda; color: #155724; }
+        .input-group {text-align: left; margin-bottom: 1.5rem;}
+        input {width: 100%;padding: 12px 15px;border: 1px solid #d2d2d7;border-radius: 10px;font-size: 16px;
+            box-sizing: border-box;transition: border-color 0.3s ease;}
+        input:focus {outline: none;border-color: #0071e3;box-shadow: 0 0 0 4px rgba(0,113,227,0.1);}
+    </style>
+</head>
+<body>
+
+    <h1>** WebAuthn Lab: Passwordless Authentication **</h1>
+    <div class="input-group">
+        <h2>Step 1: Type Your User Name</h2>
+        <p>A new account will be created with this  <strong>user name</strong>.</p>
+        <input type="text" id="username" placeholder="e.g. Student01">
+    </div>
+
+    <div class="card">
+        <h2>Step 2: Registration</h2>
+        <p>This simulates creating a new account. The browser generates a <strong>Public/Private key pair</strong>.</p>
+        <button onclick="startRegistration()">Create Passkey</button>
+    </div>
+
+    <div class="card">
+        <h2>Step 3: Authentication</h2>
+        <p>This simulates a login. The browser uses the <strong>Private Key</strong> to sign a challenge.</p>
+        <button onclick="login()">Login with Passkey</button>
+    </div>
+
+    <div class="card">
+        <h2>Output Log</h2>
+        <div id="console">Initializing lab... Ready.</div>
+    </div>
+
+    <script>
+
+        const logDiv = document.getElementById('console');
+        function log(message, data = null) {
+            const entry = `\n[${new Date().toLocaleTimeString()}] ${message}`;
+            logDiv.innerText += entry;
+            if (data) logDiv.innerText += `\n${JSON.stringify(data, null, 2)}`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // Helper functions
+        /*
+        const buffer = (str) => Uint8Array.from(window.atob(str), c => c.charCodeAt(0));
+
+        function base64urlToBuffer(base64url) {
+            const padding = '='.repeat((4 - base64url.length % 4) % 4);
+            const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+
+            const rawData = window.atob(base64);
+            return Uint8Array.from([rawData].map(c => c.charCodeAt(0)));
+        }
+
+        function bufferToBase64url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            bytes.forEach(b => binary += String.fromCharCode(b));
+
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        */
+
+        // HELPER: Convert Base64 (from Python) to ArrayBuffer (for Hardware)
+        const base64ToBuffer = (base64) => {
+            const binary = window.atob(base64.replace(/-/g, '+').replace(/_/g, '/'));
+            return Uint8Array.from(binary, c => c.charCodeAt(0));
+        };
+
+        // HELPER: Convert ArrayBuffer (from Hardware) to Base64 (for Python)
+        const bufferToBase64 = (buffer) => {
+            return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+                .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        };
+
+        // REGISTRATION: Starting the user registration
+        async function startRegistration() {
+            log("Starting Registration...");
+            log("Step 1: Calling the server for random challanhge");
+
+            try{
+              //  document.getElementById('username').readOnly = true;
+               // document.getElementById('username').style.backgroundColor = "#eee";
+                const user = document.getElementById('username').value;
+          
+                // Calling the registration begining function
+                const response =await fetch("/register/begin", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({username:user})
+                });
+               
+                //Waiting the response
+                const options = await response.json();
+                if (options.status === "error") {
+                    log(options.message);
+                    return;
+                }
+                //Reading the challenge and user id send by the server
+                options.challenge = base64ToBuffer(options.challenge);
+                options.user.id = base64ToBuffer(options.user.id);
+
+                log("Step 2: Waiting for Hardware (TouchID/FaceID)...");
+                //This function will generate public private keys at the device
+                const credential = await navigator.credentials.create({
+                    publicKey: options
+
+                });
+                
+                log("Step 3: Hardware success! Sending Attestation to Python...");
+
+                // Prepare the credential object to be sent to the server
+                const credentialForServer = {
+                    id: credential.id,
+                    rawId: bufferToBase64(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        attestationObject: bufferToBase64(credential.response.attestationObject),
+                        clientDataJSON: bufferToBase64(credential.response.clientDataJSON),
+                    },
+                    clientExtensionResults: credential.getClientExtensionResults()
+                 };
+
+                // Calling the registration complete method with the credentials
+                const verifyRes = await fetch('/register/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username:user,
+                        credential: credentialForServer
+                    })
+                });
+                const result = await verifyRes.json();
+
+                // Verify the registration status
+                if (result.status === "success") {
+                    log("SUCCESS: " + result.message);
+                } else {
+                    log("ERROR: " + result.message);
+                }
+
+            } catch (err) {
+                log("FAILED: " + err.name + " - " + err.message);
+                console.error(err);
+            }
+        }
+
+        // LOGIN: Starting the user logining
+        async function login() {
+            log("Starting Authentication (Login)...");
+
+            try{
+                const username = document.getElementById('username').value;
+
+                //Calling the server to get login challenge
+                log("Step 1: Calling the server to get random chalange ");
+                const res = await fetch('/api/generate-login-challenge', {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({username:username})}); 
+                
+                const options = await res.json();
+             
+                if (options.status === "error") {
+                    log(options.message);
+                    return;
+                }
+                
+                //Reading the challenge received from the server
+                if (options.challenge) {
+                    options.challenge = base64ToBuffer(options.challenge);
+                }
+                if (!options.allowCredentials) {
+                    log("Error: " + (options.error || "No credentials found for this user"));
+                    return;
+                }
+                
+                // Explicitly check and convert the user ID
+                if (options.allowCredentials && options.allowCredentials[0])
+                    options.allowCredentials[0].id = base64ToBuffer(options.allowCredentials[0].id);
+                
+                log("Step 2: Signing the random chalange ");
+                // Passing the creditial to the hardware and asking the signature
+                const assertion = await navigator.credentials.get({ publicKey: options}); 
+                
+                // Building the response jason to be sent to the server 
+                const body = {username, credential: { 
+                    id: assertion.id, 
+                    rawId: bufferToBase64(assertion.rawId), 
+                    type: assertion.type, 
+                    response: { authenticatorData: bufferToBase64(assertion.response.authenticatorData),
+                        clientDataJSON: bufferToBase64(assertion.response.clientDataJSON),
+                        signature: bufferToBase64(assertion.response.signature),
+                        userHandle: assertion.response.userHandle ? bufferToBase64(assertion.response.userHandle) : null
+                    }}};
+                
+                log("Step 3: Submitting the signed chalange to the server");
+                // Finally calling the server.
+                // The server will verify the signature and return the response
+                const answer = await fetch('/api/login-verify', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'}, 
+                        body: JSON.stringify(body)}); 
+                
+                const result = await answer.json();
+             
+                // Verifing the login status
+                if (result.status === "success") {
+                    log("SUCCESS: " + result.message);
+                } else {
+                    log("ERROR: " + result.message);
+                }
+
+            } catch (err) {
+                log("FAILED: " + err.name + " - " + err.message);
+                console.error(err);
+            }
+        }
+
+        // Check for WebAuthn support
+        if (!window.PublicKeyCredential) {
+            log("FATAL: WebAuthn is not supported in this browser.");
+        }
+    </script>
+</body>
+</html>
