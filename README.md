@@ -22,7 +22,7 @@ This lab demonstrates how to use hardware biometrics (TouchID, FaceID) and mobil
 1. **HTTPS or Localhost:** WebAuthn requires a secure context. Running on `http://localhost:8080` is supported.
 2. **Hardware:** A device with a biometric sensor (TouchID/FaceID) or a mobile phone with Bluetooth enabled.
 3. **Python Libraries:**
-'''pip install flask flask-cors webauthn
+```pip install flask flask-cors webauthn
 
 
 ## 🔧 Installation & Setup
