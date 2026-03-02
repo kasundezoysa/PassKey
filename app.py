@@ -35,7 +35,7 @@ RP_ID = "localhost"
 RP_NAME =  "My WebAuthn App"
 ORIGIN = "http://localhost:3000"
 # This simulates the database.
-# However in the real applications you must use a database.
+# However, in real applications, you must use a database.
 db = {
     "users": {}  
 }
@@ -59,7 +59,7 @@ def register_begin():
         # Create a unique ID for the user if they don't exist
         if username not in db["users"]:
             user_id= os.urandom(32)
-            # The real applications you must use a database to store it
+            # The real applications require you to use a database to store it
             db["users"][username] = {"user_id": user_id}
         else :
             print("ERROR: This user is alredy exsits!!")
@@ -73,11 +73,11 @@ def register_begin():
             user_name=username,
             user_display_name=username,
             authenticator_selection=AuthenticatorSelectionCriteria(
-                #This triggers where the keys will be stored'
+                #This triggers where the keys will be stored.'
                 resident_key=ResidentKeyRequirement.PREFERRED,
                 #This triggers the "Use the platform device'
                 authenticator_attachment=AuthenticatorAttachment.PLATFORM,
-                #This triggers the "Use the a different device'
+                #This triggers the "Use a different device'
                 #authenticator_attachment=AuthenticatorAttachment.CROSS_PLATFORM,
                 user_verification=UserVerificationRequirement.REQUIRED
             )
@@ -86,7 +86,7 @@ def register_begin():
         #Save the user registration options in the database
         db["users"][username]["reg_state"] = registration_options
         
-        #Send the registration options to the browser as json object 
+        #Send the registration options to the browser as a JSON object 
         json_data = options_to_json(registration_options)
         return Response(json_data, mimetype='application/json')
         
@@ -103,7 +103,7 @@ def register_complete():
         data = request.json
         username = data.get("username")
 
-        # Check this user alredy starts the registration, if not return error
+        # Check if this user has already started the registration. If not, return an error
         if username not in db["users"]:  
             return jsonify({"status": "error", "message": "No registration in progress"}), 500
 
@@ -122,7 +122,7 @@ def register_complete():
         )
 
         # Success! Save the Public Key and Credential ID in the database
-        # You should set sign cout to be zero 
+        # You should set the sign count to be zero 
         db["users"][username]["public_key"] = verification.credential_public_key
         db["users"][username]["credential_id"] = verification.credential_id
         db["users"][username]["sign_count"] = 0
@@ -136,7 +136,7 @@ def register_complete():
 
 
 # -----------------------------------------------------------------
-# Start the login process by sending the challange to the browser
+# Start the login process by sending the challenge to the browser
 # -----------------------------------------------------------------
 @app.route('/api/generate-login-challenge', methods=['POST'])
 def generate_login_challenge():
@@ -144,9 +144,9 @@ def generate_login_challenge():
         username = request.json.get("username")
         user = db["users"].get(username)
        
-        # Check this user alredy starts the registration, if not return error
+        # Check if this user has already started the registration. If not, return an error
         if not user: 
-            return jsonify({"status": "error", "message":"The user is not exsits"}), 400
+            return jsonify({"status": "error", "message": "The user does not exist"}), 400
 
         allowed_creds = [
             PublicKeyCredentialDescriptor(id=user["credential_id"])
@@ -162,7 +162,7 @@ def generate_login_challenge():
         # Save the challenge in the database
         db["users"][username]["auth_state"] = options.challenge
 
-        # Send the json object to the browser with the challenge
+        # Send the JSON object to the browser with the challenge
         return jsonify({
             "challenge": base64.urlsafe_b64encode(options.challenge).decode().replace('=', ''),
             "allowCredentials": [{
@@ -183,7 +183,7 @@ def generate_login_challenge():
 
 
 # -----------------------------------------------------------------
-# Complete the login by verifying the signatue of the challange
+# Complete the login by verifying the signature of the challenge
 # -----------------------------------------------------------------
 @app.route('/api/login-verify', methods=['POST'])
 def login_verify():
@@ -192,10 +192,10 @@ def login_verify():
         username = data.get("username")
         user = db["users"].get(username)
         
-        # Retrive the credential object received from the client
+        # Retrieve the credential object received from the client
         credential = parse_authentication_credential_json(data["credential"])
         
-        # Verify the digital signature if the credential
+        # Verify the digital signature of the credential
         verification = verify_authentication_response(credential=credential,
                     expected_challenge=user["auth_state"],
                     expected_rp_id=RP_ID, 
@@ -203,8 +203,8 @@ def login_verify():
                     credential_public_key=user["public_key"],
                     credential_current_sign_count=user["sign_count"]
                     )
-        # Save the sign count in the database to prevant the replay attack
-        # It always zero for some hardware
+        # Save the sign count in the database to prevent the replay attack
+        # It is always zero for some hardware.
         db["users"][username]["sign_count"] = verification.new_sign_count
         print(f"Updated sign_count for {username} to {verification.new_sign_count}")
 
