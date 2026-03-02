@@ -31,11 +31,17 @@ pip install flask flask-cors webauthn
 ## 🔧 Installation & Setup
 
 1. **Clone the repository:**
-> git clone https://github.com/your-username/passkey-lab.git
-> cd passkey-lab
+
+```bash
+git clone https://github.com/your-username/passkey-lab.git
+cd passkey-lab
+```
 
 2. **Run the server:**
-> python app.py
+
+```bash
+python app.py
+```
 
 3. **Access the Lab:**
 Open your browser and navigate to `http://localhost:8080`.
